@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { ViewGrid } from 'iconoir-react';
+import { Search, ViewGrid } from 'iconoir-react';
 import {
-  SearchInput,
+  CmdK,
+  IconButton,
   Sidebar,
   SidebarContent,
   SidebarGroup,
@@ -15,16 +16,19 @@ import {
   SidebarRail,
   SidebarTrigger,
   ThemeToggle,
+  Tooltip,
 } from '@snc-software/snc-ui';
-import type { SearchInputOption, Theme } from '@snc-software/snc-ui';
+import type { OptionItem, Theme } from '@snc-software/snc-ui';
+import { SidebarBrand } from './SidebarBrand';
 import { SEARCHABLE_ROUTES, SEARCH_DEBOUNCE_MS } from './AppShell.constants';
 import { classes } from './AppShell.styles';
 import type { AppShellProps } from './AppShell.types';
 
 export function AppShell({ children }: AppShellProps) {
   const [theme, setTheme] = useState<Theme>('light');
-  const [results, setResults] = useState<SearchInputOption[]>([]);
+  const [results, setResults] = useState<OptionItem[]>(SEARCHABLE_ROUTES);
   const [searching, setSearching] = useState(false);
+  const [isCmdkOpen, setIsCmdkOpen] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -32,8 +36,26 @@ export function AppShell({ children }: AppShellProps) {
     return () => document.documentElement.classList.remove('dark');
   }, [theme]);
 
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setIsCmdkOpen((open) => !open);
+      }
+    }
+
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
+
   function toggleTheme() {
     setTheme((current) => (current === 'dark' ? 'light' : 'dark'));
+  }
+
+  function closeCmdk() {
+    setIsCmdkOpen(false);
+    setResults(SEARCHABLE_ROUTES);
+    setSearching(false);
   }
 
   function handleSearch(query: string) {
@@ -41,16 +63,14 @@ export function AppShell({ children }: AppShellProps) {
     clearTimeout(searchTimeout.current);
 
     if (!term) {
-      setResults([]);
+      setResults(SEARCHABLE_ROUTES);
       setSearching(false);
       return;
     }
 
     setSearching(true);
     searchTimeout.current = setTimeout(() => {
-      setResults(
-        SEARCHABLE_ROUTES.filter((route) => route.label.toLowerCase().includes(term)),
-      );
+      setResults(SEARCHABLE_ROUTES.filter((route) => route.title.toLowerCase().includes(term)));
       setSearching(false);
     }, SEARCH_DEBOUNCE_MS);
   }
@@ -60,10 +80,7 @@ export function AppShell({ children }: AppShellProps) {
       <SidebarProvider defaultOpen className={classes.provider}>
         <Sidebar collapsible="icon">
           <SidebarHeader>
-            <div className={classes.brand}>
-              <div className={classes.brandMark}>S</div>
-              <div className={classes.brandName}>SNC</div>
-            </div>
+            <SidebarBrand />
           </SidebarHeader>
 
           <SidebarContent>
@@ -72,9 +89,7 @@ export function AppShell({ children }: AppShellProps) {
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton isActive tooltip="Overview">
-                      <span className={classes.navIcon}>
-                        <ViewGrid width={16} height={16} strokeWidth={1.6} />
-                      </span>
+                      <ViewGrid width={16} height={16} strokeWidth={1.6} />
                       <span>Overview</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -89,25 +104,40 @@ export function AppShell({ children }: AppShellProps) {
         <SidebarInset>
           <header className={classes.header}>
             <div className={classes.headerStart}>
-              <SidebarTrigger />
+              <Tooltip content="Toggle sidebar" placement="bottom">
+                <SidebarTrigger title={undefined} />
+              </Tooltip>
             </div>
 
-            <div className={classes.headerSearch}>
-              <SearchInput
-                options={results}
-                isLoading={searching}
-                placeholder="Search"
-                aria-label="Search"
-                debounceMs={200}
-                noResultsMessage="No matches"
-                onSearch={handleSearch}
-              />
-            </div>
+            <div className={classes.headerActions}>
+              <Tooltip content="⌘K" placement="bottom">
+                <IconButton label="Search" title={undefined} onClick={() => setIsCmdkOpen(true)}>
+                  <Search width={16} height={16} strokeWidth={1.8} />
+                </IconButton>
+              </Tooltip>
 
-            <div className={classes.headerEnd}>
-              <ThemeToggle theme={theme} label="Toggle theme" onToggle={toggleTheme} />
+              <Tooltip content="Toggle theme" placement="bottom">
+                <ThemeToggle
+                  theme={theme}
+                  label="Toggle theme"
+                  title={undefined}
+                  onToggle={toggleTheme}
+                />
+              </Tooltip>
             </div>
           </header>
+
+          <CmdK
+            isOpen={isCmdkOpen}
+            onClose={closeCmdk}
+            options={results}
+            isLoading={searching}
+            placeholder="Search"
+            debounceMs={200}
+            emptyText="No matches"
+            closeLabel="Close search"
+            onSearch={handleSearch}
+          />
 
           <main className={classes.main}>{children}</main>
         </SidebarInset>
