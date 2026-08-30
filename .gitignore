@@ -14,8 +14,6 @@ dist
 dist-ssr
 *.local
 
-# TanStack Router
-src/routeTree.gen.ts
 
 # TypeScript
 *.tsbuildinfo
